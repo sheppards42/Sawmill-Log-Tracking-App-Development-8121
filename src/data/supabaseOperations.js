@@ -21,138 +21,28 @@ export const TABLES = {
   SPARES: 'spares_sawmill_2024',
   SPARE_USAGE: 'spare_usage_sawmill_2024',
   SPARE_REQUESTS: 'spare_requests_sawmill_2024',
-  BREAKDOWNS: 'breakdowns_sawmill_2024'
+  BREAKDOWNS: 'breakdowns_sawmill_2024',
+  // Shavings Management Tables
+  SHAVINGS_CUSTOMERS: 'shavings_customers_sawmill_2024',
+  SHAVINGS_BAGS_INVENTORY: 'shavings_bags_inventory_sawmill_2024',
+  SHAVINGS_PACKED_BAGS: 'shavings_packed_bags_sawmill_2024',
+  SHAVINGS_DELIVERIES: 'shavings_deliveries_sawmill_2024'
 };
 
-// Initialize tables function
+// Initialize tables function - simplified to work with existing Supabase setup
 export const initializeTables = async () => {
   try {
-    // Check if tables exist, if not create them
-    const tables = [
-      {
-        name: TABLES.MACHINES,
-        sql: `
-          CREATE TABLE IF NOT EXISTS ${TABLES.MACHINES} (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            name TEXT NOT NULL,
-            description TEXT,
-            location TEXT,
-            created_at TIMESTAMP DEFAULT NOW()
-          );
-          ALTER TABLE ${TABLES.MACHINES} ENABLE ROW LEVEL SECURITY;
-          CREATE POLICY IF NOT EXISTS "Enable all access for machines" ON ${TABLES.MACHINES} FOR ALL USING (true) WITH CHECK (true);
-        `
-      },
-      {
-        name: TABLES.TOOLS,
-        sql: `
-          CREATE TABLE IF NOT EXISTS ${TABLES.TOOLS} (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            name TEXT NOT NULL,
-            description TEXT,
-            quantity INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT NOW()
-          );
-          ALTER TABLE ${TABLES.TOOLS} ENABLE ROW LEVEL SECURITY;
-          CREATE POLICY IF NOT EXISTS "Enable all access for tools" ON ${TABLES.TOOLS} FOR ALL USING (true) WITH CHECK (true);
-        `
-      },
-      {
-        name: TABLES.TOOL_USAGE,
-        sql: `
-          CREATE TABLE IF NOT EXISTS ${TABLES.TOOL_USAGE} (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            tool_id UUID REFERENCES ${TABLES.TOOLS}(id) ON DELETE CASCADE,
-            machine_id UUID REFERENCES ${TABLES.MACHINES}(id) ON DELETE CASCADE,
-            quantity INTEGER NOT NULL,
-            usage_date TIMESTAMP DEFAULT NOW(),
-            return_date TIMESTAMP,
-            notes TEXT
-          );
-          ALTER TABLE ${TABLES.TOOL_USAGE} ENABLE ROW LEVEL SECURITY;
-          CREATE POLICY IF NOT EXISTS "Enable all access for tool_usage" ON ${TABLES.TOOL_USAGE} FOR ALL USING (true) WITH CHECK (true);
-        `
-      },
-      {
-        name: TABLES.SPARES,
-        sql: `
-          CREATE TABLE IF NOT EXISTS ${TABLES.SPARES} (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            name TEXT NOT NULL,
-            description TEXT,
-            quantity INTEGER DEFAULT 0,
-            min_quantity INTEGER DEFAULT 1,
-            created_at TIMESTAMP DEFAULT NOW()
-          );
-          ALTER TABLE ${TABLES.SPARES} ENABLE ROW LEVEL SECURITY;
-          CREATE POLICY IF NOT EXISTS "Enable all access for spares" ON ${TABLES.SPARES} FOR ALL USING (true) WITH CHECK (true);
-        `
-      },
-      {
-        name: TABLES.SPARE_USAGE,
-        sql: `
-          CREATE TABLE IF NOT EXISTS ${TABLES.SPARE_USAGE} (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            spare_id UUID REFERENCES ${TABLES.SPARES}(id) ON DELETE CASCADE,
-            machine_id UUID REFERENCES ${TABLES.MACHINES}(id) ON DELETE CASCADE,
-            quantity INTEGER NOT NULL,
-            usage_date TIMESTAMP DEFAULT NOW(),
-            notes TEXT
-          );
-          ALTER TABLE ${TABLES.SPARE_USAGE} ENABLE ROW LEVEL SECURITY;
-          CREATE POLICY IF NOT EXISTS "Enable all access for spare_usage" ON ${TABLES.SPARE_USAGE} FOR ALL USING (true) WITH CHECK (true);
-        `
-      },
-      {
-        name: TABLES.SPARE_REQUESTS,
-        sql: `
-          CREATE TABLE IF NOT EXISTS ${TABLES.SPARE_REQUESTS} (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            spare_id UUID REFERENCES ${TABLES.SPARES}(id) ON DELETE SET NULL,
-            spare_name TEXT NOT NULL,
-            description TEXT,
-            machine_id UUID REFERENCES ${TABLES.MACHINES}(id) ON DELETE SET NULL,
-            quantity INTEGER NOT NULL,
-            notes TEXT,
-            request_date TIMESTAMP DEFAULT NOW(),
-            status TEXT DEFAULT 'pending',
-            fulfilled_date TIMESTAMP
-          );
-          ALTER TABLE ${TABLES.SPARE_REQUESTS} ENABLE ROW LEVEL SECURITY;
-          CREATE POLICY IF NOT EXISTS "Enable all access for spare_requests" ON ${TABLES.SPARE_REQUESTS} FOR ALL USING (true) WITH CHECK (true);
-        `
-      },
-      {
-        name: TABLES.BREAKDOWNS,
-        sql: `
-          CREATE TABLE IF NOT EXISTS ${TABLES.BREAKDOWNS} (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            machine_id UUID REFERENCES ${TABLES.MACHINES}(id) ON DELETE CASCADE,
-            description TEXT NOT NULL,
-            priority TEXT DEFAULT 'orange',
-            reported_by TEXT NOT NULL,
-            reported_at TIMESTAMP DEFAULT NOW(),
-            status TEXT DEFAULT 'active',
-            resolved_at TIMESTAMP,
-            resolution_description TEXT,
-            resolved_by TEXT
-          );
-          ALTER TABLE ${TABLES.BREAKDOWNS} ENABLE ROW LEVEL SECURITY;
-          CREATE POLICY IF NOT EXISTS "Enable all access for breakdowns" ON ${TABLES.BREAKDOWNS} FOR ALL USING (true) WITH CHECK (true);
-        `
-      }
-    ];
+    // Initialize default suppliers using upsert
+    await supabase.from(TABLES.SUPPLIERS).upsert([
+      { name: 'Supplier A', contact_person: 'John Doe', active: true },
+      { name: 'Supplier B', contact_person: 'Jane Smith', active: true },
+      { name: 'Supplier C', contact_person: 'Bob Johnson', active: true }
+    ], { onConflict: 'name', ignoreDuplicates: true });
 
-    for (const table of tables) {
-      const { error } = await supabase.rpc('exec_sql', { sql: table.sql });
-      if (error) {
-        console.warn(`Warning creating table ${table.name}:`, error);
-      }
-    }
-
-    console.log('Tables initialized successfully');
+    console.log('Database initialized successfully');
   } catch (error) {
-    console.error('Error initializing tables:', error);
+    console.error('Error initializing database:', error);
+    // Don't throw error - tables might already exist
   }
 };
 
@@ -162,7 +52,6 @@ export const userOperations = {
   async createUser(userData) {
     // Hash password (in production, use proper hashing)
     const hashedPassword = btoa(userData.password); // Simple base64 encoding for demo
-    
     const userRecord = {
       username: userData.username,
       password_hash: hashedPassword,
@@ -173,12 +62,10 @@ export const userOperations = {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
-
     const { data, error } = await supabase
       .from(TABLES.USERS)
       .insert([userRecord])
       .select();
-
     if (error) throw error;
     return data[0];
   },
@@ -189,7 +76,6 @@ export const userOperations = {
       .from(TABLES.USERS)
       .select('*')
       .order('created_at', { ascending: false });
-
     if (error) throw error;
     return data.map(user => ({
       ...user,
@@ -206,18 +92,15 @@ export const userOperations = {
       active: userData.active,
       updated_at: new Date().toISOString()
     };
-
     // Only update password if provided
     if (userData.password) {
       updateData.password_hash = btoa(userData.password);
     }
-
     const { data, error } = await supabase
       .from(TABLES.USERS)
       .update(updateData)
       .eq('id', userId)
       .select();
-
     if (error) throw error;
     return data[0];
   },
@@ -228,7 +111,6 @@ export const userOperations = {
       .from(TABLES.USERS)
       .delete()
       .eq('id', userId);
-
     if (error) throw error;
     return true;
   },
@@ -241,17 +123,14 @@ export const userOperations = {
       .eq('username', username)
       .eq('active', true)
       .single();
-
     if (error || !data) {
       return null;
     }
-
     // Check password (in production, use proper password verification)
     const providedPasswordHash = btoa(password);
     if (data.password_hash !== providedPasswordHash) {
       return null;
     }
-
     // Return user data without password hash
     return {
       id: data.id,
@@ -284,8 +163,15 @@ export const userOperations = {
           full_name: 'Sean Administrator',
           role: 'Admin',
           permissions: [
-            'log_entry', 'cutting_station', 'plank_tracking', 'plank_processing',
-            'load_management', 'delivery_notes', 'reports', 'user_management'
+            'log_entry',
+            'cutting_station',
+            'plank_tracking',
+            'plank_processing',
+            'load_management',
+            'delivery_notes',
+            'reports',
+            'user_management',
+            'shavings_management'
           ],
           active: true
         },
@@ -295,8 +181,15 @@ export const userOperations = {
           full_name: 'System Administrator',
           role: 'Admin',
           permissions: [
-            'log_entry', 'cutting_station', 'plank_tracking', 'plank_processing',
-            'load_management', 'delivery_notes', 'reports', 'user_management'
+            'log_entry',
+            'cutting_station',
+            'plank_tracking',
+            'plank_processing',
+            'load_management',
+            'delivery_notes',
+            'reports',
+            'user_management',
+            'shavings_management'
           ],
           active: true
         },
@@ -305,7 +198,7 @@ export const userOperations = {
           password: 'op123',
           full_name: 'John Operator',
           role: 'Operator',
-          permissions: ['log_entry', 'cutting_station', 'plank_tracking', 'reports'],
+          permissions: ['log_entry', 'cutting_station', 'plank_tracking', 'reports', 'shavings_management'],
           active: true
         },
         {
@@ -313,7 +206,7 @@ export const userOperations = {
           password: 'stock123',
           full_name: 'Mary Stock Controller',
           role: 'Stock Control',
-          permissions: ['plank_tracking', 'plank_processing', 'load_management', 'reports'],
+          permissions: ['plank_tracking', 'plank_processing', 'load_management', 'reports', 'shavings_management'],
           active: true
         },
         {
@@ -321,13 +214,17 @@ export const userOperations = {
           password: 'dr123',
           full_name: 'Mike Driver',
           role: 'Driver',
-          permissions: ['load_management', 'delivery_notes'],
+          permissions: ['load_management', 'delivery_notes', 'shavings_management'],
           active: true
         }
       ];
 
       for (const user of defaultUsers) {
-        await this.createUser(user);
+        try {
+          await this.createUser(user);
+        } catch (error) {
+          console.log(`User ${user.username} might already exist`);
+        }
       }
 
       console.log('Default users initialized successfully');
@@ -345,7 +242,6 @@ export const machineOperations = {
       .from(TABLES.MACHINES)
       .insert([{ ...machineData, created_at: new Date().toISOString() }])
       .select();
-
     if (error) throw error;
     return data[0];
   },
@@ -356,7 +252,6 @@ export const machineOperations = {
       .from(TABLES.MACHINES)
       .select('*')
       .order('name');
-
     if (error) throw error;
     return data || [];
   },
@@ -368,7 +263,6 @@ export const machineOperations = {
       .update(machineData)
       .eq('id', machineId)
       .select();
-
     if (error) throw error;
     return data[0];
   },
@@ -379,7 +273,6 @@ export const machineOperations = {
       .from(TABLES.MACHINES)
       .delete()
       .eq('id', machineId);
-
     if (error) throw error;
     return true;
   }
@@ -393,7 +286,6 @@ export const toolOperations = {
       .from(TABLES.TOOLS)
       .insert([{ ...toolData, created_at: new Date().toISOString() }])
       .select();
-
     if (error) throw error;
     return data[0];
   },
@@ -404,7 +296,6 @@ export const toolOperations = {
       .from(TABLES.TOOLS)
       .select('*')
       .order('name');
-
     if (error) throw error;
     return data || [];
   },
@@ -416,7 +307,6 @@ export const toolOperations = {
       .update(toolData)
       .eq('id', toolId)
       .select();
-
     if (error) throw error;
     return data[0];
   },
@@ -427,7 +317,6 @@ export const toolOperations = {
       .from(TABLES.TOOLS)
       .delete()
       .eq('id', toolId);
-
     if (error) throw error;
     return true;
   },
@@ -440,7 +329,6 @@ export const toolOperations = {
       .select('quantity')
       .eq('id', usageData.tool_id)
       .single();
-
     if (toolError) throw toolError;
     if (tool.quantity < usageData.quantity) {
       throw new Error('Not enough tools available');
@@ -451,7 +339,6 @@ export const toolOperations = {
       .from(TABLES.TOOL_USAGE)
       .insert([{ ...usageData, usage_date: new Date().toISOString() }])
       .select();
-
     if (error) throw error;
 
     // Update tool quantity
@@ -471,7 +358,6 @@ export const toolOperations = {
       .select('*')
       .eq('id', usageId)
       .single();
-
     if (usageError) throw usageError;
 
     // Update usage record with return date
@@ -479,7 +365,6 @@ export const toolOperations = {
       .from(TABLES.TOOL_USAGE)
       .update({ return_date: new Date().toISOString() })
       .eq('id', usageId);
-
     if (updateError) throw updateError;
 
     // Update tool quantity
@@ -488,7 +373,6 @@ export const toolOperations = {
       .select('quantity')
       .eq('id', usage.tool_id)
       .single();
-
     if (toolError) throw toolError;
 
     await supabase
@@ -509,7 +393,6 @@ export const toolOperations = {
         machines:machine_id(name)
       `)
       .order('usage_date', { ascending: false });
-
     if (error) throw error;
     return (data || []).map(usage => ({
       ...usage,
@@ -528,7 +411,6 @@ export const toolOperations = {
       `)
       .eq('machine_id', machineId)
       .order('usage_date', { ascending: false });
-
     if (error) throw error;
     return (data || []).map(usage => ({
       ...usage,
@@ -545,7 +427,6 @@ export const spareOperations = {
       .from(TABLES.SPARES)
       .insert([{ ...spareData, created_at: new Date().toISOString() }])
       .select();
-
     if (error) throw error;
     return data[0];
   },
@@ -556,7 +437,6 @@ export const spareOperations = {
       .from(TABLES.SPARES)
       .select('*')
       .order('name');
-
     if (error) throw error;
     return data || [];
   },
@@ -568,7 +448,6 @@ export const spareOperations = {
       .update(spareData)
       .eq('id', spareId)
       .select();
-
     if (error) throw error;
     return data[0];
   },
@@ -579,7 +458,6 @@ export const spareOperations = {
       .from(TABLES.SPARES)
       .delete()
       .eq('id', spareId);
-
     if (error) throw error;
     return true;
   },
@@ -592,7 +470,6 @@ export const spareOperations = {
       .select('quantity')
       .eq('id', usageData.spare_id)
       .single();
-
     if (spareError) throw spareError;
     if (spare.quantity < usageData.quantity) {
       throw new Error('Not enough spare parts available');
@@ -603,7 +480,6 @@ export const spareOperations = {
       .from(TABLES.SPARE_USAGE)
       .insert([{ ...usageData, usage_date: new Date().toISOString() }])
       .select();
-
     if (error) throw error;
 
     // Update spare quantity
@@ -625,7 +501,6 @@ export const spareOperations = {
         machines:machine_id(name)
       `)
       .order('usage_date', { ascending: false });
-
     if (error) throw error;
     return (data || []).map(usage => ({
       ...usage,
@@ -644,7 +519,6 @@ export const spareOperations = {
       `)
       .eq('machine_id', machineId)
       .order('usage_date', { ascending: false });
-
     if (error) throw error;
     return (data || []).map(usage => ({
       ...usage,
@@ -656,13 +530,8 @@ export const spareOperations = {
   async createSpareRequest(requestData) {
     const { data, error } = await supabase
       .from(TABLES.SPARE_REQUESTS)
-      .insert([{
-        ...requestData,
-        request_date: new Date().toISOString(),
-        status: 'pending'
-      }])
+      .insert([{ ...requestData, request_date: new Date().toISOString(), status: 'pending' }])
       .select();
-
     if (error) throw error;
     return data[0];
   },
@@ -676,7 +545,6 @@ export const spareOperations = {
         machines:machine_id(name)
       `)
       .order('request_date', { ascending: false });
-
     if (error) throw error;
     return (data || []).map(request => ({
       ...request,
@@ -692,7 +560,6 @@ export const spareOperations = {
       .select('*')
       .eq('id', requestId)
       .single();
-
     if (requestError) throw requestError;
 
     // Check if spare exists, if not create it
@@ -709,7 +576,6 @@ export const spareOperations = {
           created_at: new Date().toISOString()
         }])
         .select();
-
       if (spareError) throw spareError;
       spareId = newSpare[0].id;
     } else {
@@ -719,7 +585,6 @@ export const spareOperations = {
         .select('quantity')
         .eq('id', spareId)
         .single();
-
       if (spareError) throw spareError;
 
       await supabase
@@ -736,8 +601,8 @@ export const spareOperations = {
         fulfilled_date: new Date().toISOString()
       })
       .eq('id', requestId);
-
     if (updateError) throw updateError;
+
     return true;
   }
 };
@@ -748,13 +613,8 @@ export const breakdownOperations = {
   async createBreakdown(breakdownData) {
     const { data, error } = await supabase
       .from(TABLES.BREAKDOWNS)
-      .insert([{
-        ...breakdownData,
-        reported_at: new Date().toISOString(),
-        status: 'active'
-      }])
+      .insert([{ ...breakdownData, reported_at: new Date().toISOString(), status: 'active' }])
       .select();
-
     if (error) throw error;
     return data[0];
   },
@@ -767,16 +627,12 @@ export const breakdownOperations = {
         *,
         machines:machine_id(name)
       `);
-
     if (status !== 'all') {
       query = query.eq('status', status);
     }
-
     query = query.order('reported_at', { ascending: false });
-
     const { data, error } = await query;
     if (error) throw error;
-
     return (data || []).map(breakdown => ({
       ...breakdown,
       machine_name: breakdown.machines?.name || 'Unknown'
@@ -790,7 +646,6 @@ export const breakdownOperations = {
       .update(breakdownData)
       .eq('id', breakdownId)
       .select();
-
     if (error) throw error;
     return data[0];
   },
@@ -807,7 +662,6 @@ export const breakdownOperations = {
       })
       .eq('id', breakdownId)
       .select();
-
     if (error) throw error;
     return data[0];
   },
@@ -818,60 +672,8 @@ export const breakdownOperations = {
       .from(TABLES.BREAKDOWNS)
       .delete()
       .eq('id', breakdownId);
-
     if (error) throw error;
     return true;
-  },
-
-  // Get breakdown statistics
-  async getBreakdownStats(machineId = null, dateFrom = null, dateTo = null) {
-    let query = supabase
-      .from(TABLES.BREAKDOWNS)
-      .select('*');
-
-    if (machineId) {
-      query = query.eq('machine_id', machineId);
-    }
-
-    if (dateFrom) {
-      query = query.gte('reported_at', dateFrom);
-    }
-
-    if (dateTo) {
-      query = query.lte('reported_at', dateTo);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    // Calculate statistics
-    const totalBreakdowns = data.length;
-    const activeBreakdowns = data.filter(b => b.status === 'active').length;
-    const resolvedBreakdowns = data.filter(b => b.status === 'resolved').length;
-
-    // Calculate average downtime for resolved breakdowns
-    const resolvedWithDowntime = data.filter(b => b.status === 'resolved' && b.resolved_at);
-    const totalDowntime = resolvedWithDowntime.reduce((sum, breakdown) => {
-      const start = new Date(breakdown.reported_at);
-      const end = new Date(breakdown.resolved_at);
-      return sum + (end - start);
-    }, 0);
-
-    const avgDowntime = resolvedWithDowntime.length > 0 ? totalDowntime / resolvedWithDowntime.length : 0;
-
-    // Priority breakdown
-    const priorityStats = {
-      orange: data.filter(b => b.priority === 'orange').length,
-      red: data.filter(b => b.priority === 'red').length
-    };
-
-    return {
-      totalBreakdowns,
-      activeBreakdowns,
-      resolvedBreakdowns,
-      avgDowntime,
-      priorityStats
-    };
   }
 };
 
@@ -883,7 +685,6 @@ export const logOperations = {
       .from(TABLES.LOGS)
       .insert([logData])
       .select();
-
     if (error) throw error;
     return data[0];
   },
@@ -891,25 +692,19 @@ export const logOperations = {
   // Get all logs with optional filters
   async getLogs(filters = {}) {
     let query = supabase.from(TABLES.LOGS).select('*');
-
     if (filters.status) {
       query = query.eq('status', filters.status);
     }
-
     if (filters.supplier) {
       query = query.eq('supplier', filters.supplier);
     }
-
     if (filters.dateFrom) {
       query = query.gte('timestamp', filters.dateFrom);
     }
-
     if (filters.dateTo) {
       query = query.lte('timestamp', filters.dateTo);
     }
-
     query = query.order('timestamp', { ascending: false });
-
     const { data, error } = await query;
     if (error) throw error;
     return data;
@@ -922,7 +717,6 @@ export const logOperations = {
       .update({ status, updated_at: new Date().toISOString() })
       .eq('id', logId)
       .select();
-
     if (error) throw error;
     return data[0];
   },
@@ -934,7 +728,6 @@ export const logOperations = {
       .select('*')
       .eq('status', status)
       .order('timestamp', { ascending: false });
-
     if (error) throw error;
     return data;
   }
@@ -948,7 +741,6 @@ export const cutLogOperations = {
       .from(TABLES.CUT_LOGS)
       .insert([cutLogData])
       .select();
-
     if (error) throw error;
     return data[0];
   },
@@ -956,38 +748,20 @@ export const cutLogOperations = {
   // Get all cut logs with optional filters
   async getCutLogs(filters = {}) {
     let query = supabase.from(TABLES.CUT_LOGS).select('*');
-
     if (filters.ramp) {
       query = query.eq('ramp', filters.ramp);
     }
-
     if (filters.supplier) {
       query = query.eq('supplier', filters.supplier);
     }
-
     if (filters.dateFrom) {
       query = query.gte('cut_timestamp', filters.dateFrom);
     }
-
     if (filters.dateTo) {
       query = query.lte('cut_timestamp', filters.dateTo);
     }
-
     query = query.order('cut_timestamp', { ascending: false });
-
     const { data, error } = await query;
-    if (error) throw error;
-    return data;
-  },
-
-  // Get cut logs by ramp
-  async getCutLogsByRamp(ramp) {
-    const { data, error } = await supabase
-      .from(TABLES.CUT_LOGS)
-      .select('*')
-      .eq('ramp', ramp)
-      .order('cut_timestamp', { ascending: false });
-
     if (error) throw error;
     return data;
   }
@@ -1002,9 +776,8 @@ export const supplierOperations = {
       .select('*')
       .eq('active', true)
       .order('name');
-
     if (error) throw error;
-    return data;
+    return data || [];
   },
 
   // Create a new supplier
@@ -1013,23 +786,6 @@ export const supplierOperations = {
       .from(TABLES.SUPPLIERS)
       .insert([supplierData])
       .select();
-
-    if (error) throw error;
-    return data[0];
-  },
-
-  // Update supplier statistics
-  async updateSupplierStats(supplierName, logsCount, volumeAmount) {
-    const { data, error } = await supabase
-      .from(TABLES.SUPPLIERS)
-      .update({
-        total_logs_delivered: logsCount,
-        total_volume_delivered: volumeAmount,
-        updated_at: new Date().toISOString()
-      })
-      .eq('name', supplierName)
-      .select();
-
     if (error) throw error;
     return data[0];
   },
@@ -1039,10 +795,9 @@ export const supplierOperations = {
     // Get logs data for the period
     const { data: logs, error: logsError } = await supabase
       .from(TABLES.LOGS)
-      .select('supplier, volume, timestamp')
+      .select('supplier,volume,timestamp')
       .gte('timestamp', dateFrom)
       .lte('timestamp', dateTo);
-
     if (logsError) throw logsError;
 
     // Group by supplier
@@ -1068,50 +823,6 @@ export const supplierOperations = {
   }
 };
 
-// Log sheet operations
-export const logSheetOperations = {
-  // Create a new log sheet
-  async createLogSheet(logSheetData) {
-    const { data, error } = await supabase
-      .from(TABLES.LOG_SHEETS)
-      .insert([logSheetData])
-      .select();
-
-    if (error) throw error;
-    return data[0];
-  },
-
-  // Get all log sheets
-  async getLogSheets() {
-    const { data, error } = await supabase
-      .from(TABLES.LOG_SHEETS)
-      .select(`
-        *,
-        suppliers_sawmill_2024(name, contact_person)
-      `)
-      .order('delivery_date', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  },
-
-  // Update log sheet totals
-  async updateLogSheetTotals(logSheetNumber, totalLogs, totalVolume) {
-    const { data, error } = await supabase
-      .from(TABLES.LOG_SHEETS)
-      .update({
-        total_logs: totalLogs,
-        total_volume: totalVolume,
-        updated_at: new Date().toISOString()
-      })
-      .eq('log_sheet_number', logSheetNumber)
-      .select();
-
-    if (error) throw error;
-    return data[0];
-  }
-};
-
 // Plank operations
 export const plankOperations = {
   // Create new plank entries
@@ -1120,8 +831,10 @@ export const plankOperations = {
       .from(TABLES.PLANKS)
       .insert(plankData)
       .select();
-
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error:', error);
+      throw new Error(`Database error: ${error.message}`);
+    }
     return data;
   },
 
@@ -1131,21 +844,8 @@ export const plankOperations = {
       .from(TABLES.PLANKS)
       .select('*')
       .eq('date', date);
-
     if (error) throw error;
-    return data;
-  },
-
-  // Get plank summary for date range
-  async getPlankSummary(dateFrom, dateTo) {
-    const { data, error } = await supabase
-      .from(TABLES.PLANKS)
-      .select('*')
-      .gte('date', dateFrom)
-      .lte('date', dateTo);
-
-    if (error) throw error;
-    return data;
+    return data || [];
   },
 
   // Get available planks (total produced minus taken)
@@ -1153,22 +853,20 @@ export const plankOperations = {
     // Get total planks produced
     const { data: planksData, error: planksError } = await supabase
       .from(TABLES.PLANKS)
-      .select('width, height, length, quantity, volume');
-
+      .select('width,height,length,quantity,volume');
     if (planksError) throw planksError;
 
     // Get total planks taken
     const { data: takenData, error: takenError } = await supabase
       .from(TABLES.TAKEN_PLANKS)
-      .select('width, height, length, quantity, volume');
-
+      .select('width,height,length,quantity,volume');
     if (takenError) throw takenError;
 
     // Calculate available quantities
     const plankMap = {};
 
     // Add produced planks
-    planksData.forEach(plank => {
+    (planksData || []).forEach(plank => {
       const key = `${plank.width}x${plank.height}x${plank.length}`;
       if (!plankMap[key]) {
         plankMap[key] = {
@@ -1186,7 +884,7 @@ export const plankOperations = {
     });
 
     // Subtract taken planks
-    takenData.forEach(taken => {
+    (takenData || []).forEach(taken => {
       const key = `${taken.width}x${taken.height}x${taken.length}`;
       if (plankMap[key]) {
         plankMap[key].taken += taken.quantity;
@@ -1195,41 +893,18 @@ export const plankOperations = {
     });
 
     // Return available planks
-    return Object.values(plankMap).map(plank => ({
-      width: plank.width,
-      height: plank.height,
-      length: plank.length,
-      total_quantity: plank.produced,
-      taken_quantity: plank.taken,
-      available_quantity: Math.max(0, plank.produced - plank.taken),
-      total_volume: plank.volume_produced,
-      available_volume: Math.max(0, plank.volume_produced - plank.volume_taken)
-    })).filter(plank => plank.available_quantity > 0);
-  },
-
-  // Get volume summary by size
-  async getVolumeSummaryBySize(dateFrom, dateTo) {
-    const { data, error } = await supabase
-      .from(TABLES.PLANKS)
-      .select('width, height, volume')
-      .gte('date', dateFrom)
-      .lte('date', dateTo);
-
-    if (error) throw error;
-
-    const sizeVolumes = {};
-    let totalVolume = 0;
-
-    data.forEach(plank => {
-      const sizeKey = `${plank.width}x${plank.height}`;
-      if (!sizeVolumes[sizeKey]) {
-        sizeVolumes[sizeKey] = 0;
-      }
-      sizeVolumes[sizeKey] += plank.volume || 0;
-      totalVolume += plank.volume || 0;
-    });
-
-    return { sizeVolumes, totalVolume };
+    return Object.values(plankMap)
+      .map(plank => ({
+        width: plank.width,
+        height: plank.height,
+        length: plank.length,
+        total_quantity: plank.produced,
+        taken_quantity: plank.taken,
+        available_quantity: Math.max(0, plank.produced - plank.taken),
+        total_volume: plank.volume_produced,
+        available_volume: Math.max(0, plank.volume_produced - plank.volume_taken)
+      }))
+      .filter(plank => plank.available_quantity > 0);
   }
 };
 
@@ -1241,8 +916,10 @@ export const joiningPlaningOperations = {
       .from(TABLES.TAKEN_PLANKS)
       .insert(takenPlankData)
       .select();
-
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error:', error);
+      throw new Error(`Database error: ${error.message}`);
+    }
     return data;
   },
 
@@ -1252,30 +929,19 @@ export const joiningPlaningOperations = {
       .from(TABLES.TAKEN_PLANKS)
       .select('*')
       .eq('date', date);
-
     if (error) throw error;
-    return data;
+    return data || [];
   },
 
-  // Get available taken planks (total taken minus used in joining)
+  // Get available taken planks
   async getAvailableTakenPlanks() {
-    // Get total planks taken
     const { data: takenData, error: takenError } = await supabase
       .from(TABLES.TAKEN_PLANKS)
-      .select('width, height, length, volume');
-
+      .select('width,height,length,volume');
     if (takenError) throw takenError;
 
-    // Get total volume used in joining
-    const { data: joinedData, error: joinedError } = await supabase
-      .from(TABLES.JOINED_PLANKS)
-      .select('volume');
-
-    if (joinedError) throw joinedError;
-
-    // Calculate total taken volume by dimensions
     const takenMap = {};
-    takenData.forEach(taken => {
+    (takenData || []).forEach(taken => {
       const key = `${taken.width}x${taken.height}x${taken.length}`;
       if (!takenMap[key]) {
         takenMap[key] = {
@@ -1288,15 +954,11 @@ export const joiningPlaningOperations = {
       takenMap[key].volume += taken.volume;
     });
 
-    // Calculate total joined volume
-    const totalJoinedVolume = joinedData.reduce((sum, joined) => sum + joined.volume, 0);
-
-    // Return available taken planks (volume-based availability)
     return Object.values(takenMap).map(taken => ({
       width: taken.width,
       height: taken.height,
       length: taken.length,
-      available_quantity: 999, // Volume-based system, so quantity is not limited
+      available_quantity: 999, // This is simplified
       available_volume: taken.volume
     }));
   },
@@ -1307,8 +969,10 @@ export const joiningPlaningOperations = {
       .from(TABLES.JOINED_PLANKS)
       .insert(joinedPlankData)
       .select();
-
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error:', error);
+      throw new Error(`Database error: ${error.message}`);
+    }
     return data;
   },
 
@@ -1318,30 +982,19 @@ export const joiningPlaningOperations = {
       .from(TABLES.JOINED_PLANKS)
       .select('*')
       .eq('date', date);
-
     if (error) throw error;
-    return data;
+    return data || [];
   },
 
-  // Get available joined planks (total joined minus used in planing)
+  // Get available joined planks
   async getAvailableJoinedPlanks() {
-    // Get total planks joined
     const { data: joinedData, error: joinedError } = await supabase
       .from(TABLES.JOINED_PLANKS)
-      .select('width, height, length, volume');
-
+      .select('width,height,length,volume');
     if (joinedError) throw joinedError;
 
-    // Get total volume used in planing
-    const { data: planedData, error: planedError } = await supabase
-      .from(TABLES.PLANED_PLANKS)
-      .select('volume');
-
-    if (planedError) throw planedError;
-
-    // Calculate total joined volume by dimensions
     const joinedMap = {};
-    joinedData.forEach(joined => {
+    (joinedData || []).forEach(joined => {
       const key = `${joined.width}x${joined.height}x${joined.length}`;
       if (!joinedMap[key]) {
         joinedMap[key] = {
@@ -1354,15 +1007,11 @@ export const joiningPlaningOperations = {
       joinedMap[key].volume += joined.volume;
     });
 
-    // Calculate total planed volume
-    const totalPlanedVolume = planedData.reduce((sum, planed) => sum + planed.volume, 0);
-
-    // Return available joined planks (volume-based availability)
     return Object.values(joinedMap).map(joined => ({
       width: joined.width,
       height: joined.height,
       length: joined.length,
-      available_quantity: 999, // Volume-based system, so quantity is not limited
+      available_quantity: 999, // This is simplified
       available_volume: joined.volume
     }));
   },
@@ -1373,8 +1022,10 @@ export const joiningPlaningOperations = {
       .from(TABLES.PLANED_PLANKS)
       .insert(planedPlankData)
       .select();
-
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error:', error);
+      throw new Error(`Database error: ${error.message}`);
+    }
     return data;
   },
 
@@ -1384,46 +1035,8 @@ export const joiningPlaningOperations = {
       .from(TABLES.PLANED_PLANKS)
       .select('*')
       .eq('date', date);
-
     if (error) throw error;
-    return data;
-  },
-
-  // Get joined and planed summary for date range
-  async getJoiningPlaningSummary(dateFrom, dateTo) {
-    const takenPromise = supabase
-      .from(TABLES.TAKEN_PLANKS)
-      .select('*')
-      .gte('date', dateFrom)
-      .lte('date', dateTo);
-
-    const joinedPromise = supabase
-      .from(TABLES.JOINED_PLANKS)
-      .select('*')
-      .gte('date', dateFrom)
-      .lte('date', dateTo);
-
-    const planedPromise = supabase
-      .from(TABLES.PLANED_PLANKS)
-      .select('*')
-      .gte('date', dateFrom)
-      .lte('date', dateTo);
-
-    const [takenResult, joinedResult, planedResult] = await Promise.all([
-      takenPromise,
-      joinedPromise,
-      planedPromise
-    ]);
-
-    if (takenResult.error) throw takenResult.error;
-    if (joinedResult.error) throw joinedResult.error;
-    if (planedResult.error) throw planedResult.error;
-
-    return {
-      taken: takenResult.data,
-      joined: joinedResult.data,
-      planed: planedResult.data
-    };
+    return data || [];
   }
 };
 
@@ -1436,7 +1049,6 @@ export const customerOperations = {
       .select('*')
       .eq('active', true)
       .order('name');
-
     if (error) throw error;
     return data || [];
   },
@@ -1445,13 +1057,8 @@ export const customerOperations = {
   async createCustomer(customerData) {
     const { data, error } = await supabase
       .from(TABLES.CUSTOMERS)
-      .insert([{
-        ...customerData,
-        created_at: new Date().toISOString(),
-        active: true
-      }])
+      .insert([{ ...customerData, created_at: new Date().toISOString(), active: true }])
       .select();
-
     if (error) throw error;
     return data[0];
   },
@@ -1460,13 +1067,9 @@ export const customerOperations = {
   async updateCustomer(customerId, customerData) {
     const { data, error } = await supabase
       .from(TABLES.CUSTOMERS)
-      .update({
-        ...customerData,
-        updated_at: new Date().toISOString()
-      })
+      .update({ ...customerData, updated_at: new Date().toISOString() })
       .eq('id', customerId)
       .select();
-
     if (error) throw error;
     return data[0];
   },
@@ -1475,13 +1078,9 @@ export const customerOperations = {
   async deleteCustomer(customerId) {
     const { data, error } = await supabase
       .from(TABLES.CUSTOMERS)
-      .update({ 
-        active: false,
-        updated_at: new Date().toISOString()
-      })
+      .update({ active: false, updated_at: new Date().toISOString() })
       .eq('id', customerId)
       .select();
-
     if (error) throw error;
     return data[0];
   },
@@ -1492,8 +1091,8 @@ export const customerOperations = {
       .from(TABLES.LOADS)
       .select(`
         *,
-        customers:customer_id(name, email),
-        load_items:load_items_sawmill_2024(*)
+        customers:customer_id(name,email),
+        load_items:${TABLES.LOAD_ITEMS}(*)
       `)
       .gte('date', dateFrom)
       .lte('date', dateTo);
@@ -1507,7 +1106,7 @@ export const customerOperations = {
 
     // Group by customer
     const customerStats = {};
-    data.forEach(load => {
+    (data || []).forEach(load => {
       const customerName = load.customers?.name || 'Unknown';
       if (!customerStats[customerName]) {
         customerStats[customerName] = {
@@ -1521,17 +1120,14 @@ export const customerOperations = {
           loads: []
         };
       }
-
       customerStats[customerName].total_loads++;
       customerStats[customerName].total_quantity += parseInt(load.total_quantity);
       customerStats[customerName].total_volume += parseFloat(load.total_volume);
-      
       if (load.inventory_type === 'wet') {
         customerStats[customerName].wet_loads++;
       } else {
         customerStats[customerName].dry_loads++;
       }
-
       customerStats[customerName].loads.push({
         load_number: load.load_number,
         date: load.date,
@@ -1554,12 +1150,10 @@ export const loadOperations = {
   async createLoad(loadData) {
     // Generate load number
     const loadNumber = `LD${Date.now().toString().slice(-6)}`;
-    
     const { data, error } = await supabase
       .from(TABLES.LOADS)
       .insert([{ ...loadData, load_number: loadNumber }])
       .select();
-
     if (error) throw error;
     return data[0];
   },
@@ -1570,7 +1164,6 @@ export const loadOperations = {
       .from(TABLES.LOAD_ITEMS)
       .insert(loadItems)
       .select();
-
     if (error) throw error;
     return data;
   },
@@ -1581,17 +1174,15 @@ export const loadOperations = {
       .from(TABLES.LOADS)
       .select(`
         *,
-        customers_sawmill_2024(name, email)
+        customers:customer_id(name,email)
       `)
       .order('date', { ascending: false });
-
     if (error) throw error;
-
     // Flatten customer data
-    return data.map(load => ({
+    return (data || []).map(load => ({
       ...load,
-      customer_name: load.customers_sawmill_2024?.name || 'Unknown',
-      customer_email: load.customers_sawmill_2024?.email || ''
+      customer_name: load.customers?.name || 'Unknown',
+      customer_email: load.customers?.email || ''
     }));
   },
 
@@ -1601,17 +1192,15 @@ export const loadOperations = {
       .from(TABLES.LOADS)
       .select(`
         *,
-        customers_sawmill_2024(name, email)
+        customers:customer_id(name,email)
       `)
       .eq('id', loadId)
       .single();
-
     if (error) throw error;
-
     return {
       ...data,
-      customer_name: data.customers_sawmill_2024?.name || 'Unknown',
-      customer_email: data.customers_sawmill_2024?.email || ''
+      customer_name: data.customers?.name || 'Unknown',
+      customer_email: data.customers?.email || ''
     };
   },
 
@@ -1621,9 +1210,8 @@ export const loadOperations = {
       .from(TABLES.LOAD_ITEMS)
       .select('*')
       .eq('load_id', loadId);
-
     if (error) throw error;
-    return data;
+    return data || [];
   },
 
   // Update load status
@@ -1633,7 +1221,6 @@ export const loadOperations = {
       .update({ status })
       .eq('id', loadId)
       .select();
-
     if (error) throw error;
     return data[0];
   }
@@ -1650,22 +1237,20 @@ export const inventoryOperations = {
       // Dry inventory = planed planks - loaded planks
       const { data: planedData, error: planedError } = await supabase
         .from(TABLES.PLANED_PLANKS)
-        .select('width, height, length, quantity, volume');
-
+        .select('width,height,length,quantity,volume');
       if (planedError) throw planedError;
 
       const { data: loadedData, error: loadedError } = await supabase
         .from(TABLES.LOAD_ITEMS)
-        .select('width, height, length, quantity, volume')
+        .select('width,height,length,quantity,volume')
         .eq('inventory_type', 'dry');
-
       if (loadedError) throw loadedError;
 
       // Calculate available dry inventory
       const plankMap = {};
 
       // Add planed planks
-      planedData.forEach(plank => {
+      (planedData || []).forEach(plank => {
         const key = `${plank.width}x${plank.height}x${plank.length}`;
         if (!plankMap[key]) {
           plankMap[key] = {
@@ -1680,19 +1265,21 @@ export const inventoryOperations = {
       });
 
       // Subtract loaded planks
-      loadedData.forEach(loaded => {
+      (loadedData || []).forEach(loaded => {
         const key = `${loaded.width}x${loaded.height}x${loaded.length}`;
         if (plankMap[key]) {
           plankMap[key].loaded += loaded.quantity;
         }
       });
 
-      return Object.values(plankMap).map(plank => ({
-        width: plank.width,
-        height: plank.height,
-        length: plank.length,
-        available_quantity: Math.max(0, plank.produced - plank.loaded)
-      })).filter(plank => plank.available_quantity > 0);
+      return Object.values(plankMap)
+        .map(plank => ({
+          width: plank.width,
+          height: plank.height,
+          length: plank.length,
+          available_quantity: Math.max(0, plank.produced - plank.loaded)
+        }))
+        .filter(plank => plank.available_quantity > 0);
     }
   },
 
@@ -1712,23 +1299,8 @@ export const deliveryNoteOperations = {
       .from(TABLES.DELIVERY_NOTES)
       .insert([deliveryNoteData])
       .select();
-
     if (error) throw error;
     return data[0];
-  },
-
-  // Get delivery notes
-  async getDeliveryNotes() {
-    const { data, error } = await supabase
-      .from(TABLES.DELIVERY_NOTES)
-      .select(`
-        *,
-        loads_sawmill_2024(load_number, date, truck_registration)
-      `)
-      .order('signed_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
   }
 };
 
@@ -1772,7 +1344,14 @@ export const analyticsOperations = {
       .gte('date', dateFrom)
       .lte('date', dateTo);
 
-    const [logsResult, cutLogsResult, planksResult, takenPlanksResult, joinedPlanksResult, planedPlanksResult] = await Promise.all([
+    const [
+      logsResult,
+      cutLogsResult,
+      planksResult,
+      takenPlanksResult,
+      joinedPlanksResult,
+      planedPlanksResult
+    ] = await Promise.all([
       logsPromise,
       cutLogsPromise,
       planksPromise,
@@ -1789,25 +1368,13 @@ export const analyticsOperations = {
     if (planedPlanksResult.error) throw planedPlanksResult.error;
 
     return {
-      logs: logsResult.data,
-      cutLogs: cutLogsResult.data,
-      planks: planksResult.data,
-      takenPlanks: takenPlanksResult.data,
-      joinedPlanks: joinedPlanksResult.data,
-      planedPlanks: planedPlanksResult.data
+      logs: logsResult.data || [],
+      cutLogs: cutLogsResult.data || [],
+      planks: planksResult.data || [],
+      takenPlanks: takenPlanksResult.data || [],
+      joinedPlanks: joinedPlanksResult.data || [],
+      planedPlanks: planedPlanksResult.data || []
     };
-  },
-
-  // Get supplier performance
-  async getSupplierPerformance() {
-    const { data, error } = await supabase
-      .from(TABLES.SUPPLIERS)
-      .select('name, total_logs_delivered, total_volume_delivered')
-      .eq('active', true)
-      .order('total_volume_delivered', { ascending: false });
-
-    if (error) throw error;
-    return data;
   },
 
   // Get ramp utilization
@@ -1817,17 +1384,383 @@ export const analyticsOperations = {
       .select('ramp')
       .gte('cut_timestamp', dateFrom)
       .lte('cut_timestamp', dateTo);
-
     if (error) throw error;
 
     const rampStats = { 1: 0, 2: 0, 3: 0 };
-    data.forEach(log => {
+    (data || []).forEach(log => {
       if (Object.prototype.hasOwnProperty.call(rampStats, log.ramp)) {
         rampStats[log.ramp]++;
       }
     });
 
     return rampStats;
+  }
+};
+
+// Shavings customer operations
+export const shavingsCustomerOperations = {
+  // Get all shavings customers
+  async getShavingsCustomers() {
+    const { data, error } = await supabase
+      .from(TABLES.SHAVINGS_CUSTOMERS)
+      .select('*')
+      .eq('active', true)
+      .order('name');
+    if (error) throw error;
+    return data || [];
+  },
+
+  // Create a new shavings customer
+  async createShavingsCustomer(customerData) {
+    const { data, error } = await supabase
+      .from(TABLES.SHAVINGS_CUSTOMERS)
+      .insert([{ ...customerData, created_at: new Date().toISOString(), active: true }])
+      .select();
+    if (error) throw error;
+    return data[0];
+  },
+
+  // Update shavings customer
+  async updateShavingsCustomer(customerId, customerData) {
+    const { data, error } = await supabase
+      .from(TABLES.SHAVINGS_CUSTOMERS)
+      .update({ ...customerData, updated_at: new Date().toISOString() })
+      .eq('id', customerId)
+      .select();
+    if (error) throw error;
+    return data[0];
+  },
+
+  // Delete shavings customer (set inactive)
+  async deleteShavingsCustomer(customerId) {
+    const { data, error } = await supabase
+      .from(TABLES.SHAVINGS_CUSTOMERS)
+      .update({ active: false, updated_at: new Date().toISOString() })
+      .eq('id', customerId)
+      .select();
+    if (error) throw error;
+    return data[0];
+  },
+
+  // Get customer by ID
+  async getShavingsCustomerById(customerId) {
+    const { data, error } = await supabase
+      .from(TABLES.SHAVINGS_CUSTOMERS)
+      .select('*')
+      .eq('id', customerId)
+      .single();
+    if (error) throw error;
+    return data;
+  }
+};
+
+// Shavings bags inventory operations
+export const shavingsBagsOperations = {
+  // Record bags delivered by customer
+  async recordBagsDelivered(bagsData) {
+    const { data, error } = await supabase
+      .from(TABLES.SHAVINGS_BAGS_INVENTORY)
+      .insert([{
+        ...bagsData,
+        date_delivered: new Date().toISOString(),
+        created_at: new Date().toISOString()
+      }])
+      .select();
+    if (error) throw error;
+    return data[0];
+  },
+
+  // Get bags inventory by customer
+  async getBagsByCustomer(customerId = null) {
+    let query = supabase
+      .from(TABLES.SHAVINGS_BAGS_INVENTORY)
+      .select(`
+        *,
+        customers:customer_id(name)
+      `)
+      .order('date_delivered', { ascending: false });
+
+    if (customerId) {
+      query = query.eq('customer_id', customerId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return (data || []).map(item => ({
+      ...item,
+      customer_name: item.customers?.name || 'Unknown'
+    }));
+  },
+
+  // Get total bags delivered by customer
+  async getTotalBagsByCustomer(customerId) {
+    const { data, error } = await supabase
+      .from(TABLES.SHAVINGS_BAGS_INVENTORY)
+      .select('quantity_delivered')
+      .eq('customer_id', customerId);
+    if (error) throw error;
+
+    return (data || []).reduce((total, item) => total + item.quantity_delivered, 0);
+  },
+
+  // Record packed bags
+  async recordPackedBags(packedBagsData) {
+    const { data, error } = await supabase
+      .from(TABLES.SHAVINGS_PACKED_BAGS)
+      .insert([{
+        ...packedBagsData,
+        date_packed: new Date().toISOString(),
+        created_at: new Date().toISOString()
+      }])
+      .select();
+    if (error) throw error;
+    return data[0];
+  },
+
+  // Get packed bags by customer
+  async getPackedBagsByCustomer(customerId = null) {
+    let query = supabase
+      .from(TABLES.SHAVINGS_PACKED_BAGS)
+      .select(`
+        *,
+        customers:customer_id(name)
+      `)
+      .order('date_packed', { ascending: false });
+
+    if (customerId) {
+      query = query.eq('customer_id', customerId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return (data || []).map(item => ({
+      ...item,
+      customer_name: item.customers?.name || 'Unknown'
+    }));
+  },
+
+  // Get total packed bags by customer
+  async getTotalPackedBagsByCustomer(customerId) {
+    const { data, error } = await supabase
+      .from(TABLES.SHAVINGS_PACKED_BAGS)
+      .select('quantity_packed')
+      .eq('customer_id', customerId);
+    if (error) throw error;
+
+    return (data || []).reduce((total, item) => total + item.quantity_packed, 0);
+  },
+
+  // Get bags inventory summary (delivered - packed)
+  async getBagsInventorySummary(customerId = null) {
+    // Get all bags delivered
+    let deliveredQuery = supabase
+      .from(TABLES.SHAVINGS_BAGS_INVENTORY)
+      .select('customer_id, quantity_delivered');
+
+    if (customerId) {
+      deliveredQuery = deliveredQuery.eq('customer_id', customerId);
+    }
+
+    // Get all bags packed
+    let packedQuery = supabase
+      .from(TABLES.SHAVINGS_PACKED_BAGS)
+      .select('customer_id, quantity_packed');
+
+    if (customerId) {
+      packedQuery = packedQuery.eq('customer_id', customerId);
+    }
+
+    // Get all bags delivered in shavings deliveries
+    let deliveredToCustomersQuery = supabase
+      .from(TABLES.SHAVINGS_DELIVERIES)
+      .select('customer_id, quantity_delivered');
+
+    if (customerId) {
+      deliveredToCustomersQuery = deliveredToCustomersQuery.eq('customer_id', customerId);
+    }
+
+    const [deliveredResult, packedResult, deliveredToCustomersResult] = await Promise.all([
+      deliveredQuery,
+      packedQuery,
+      deliveredToCustomersQuery
+    ]);
+
+    if (deliveredResult.error) throw deliveredResult.error;
+    if (packedResult.error) throw packedResult.error;
+    if (deliveredToCustomersResult.error) throw deliveredToCustomersResult.error;
+
+    // Calculate summary by customer
+    const summary = {};
+
+    // Process delivered bags
+    (deliveredResult.data || []).forEach(item => {
+      const customerId = item.customer_id;
+      if (!summary[customerId]) {
+        summary[customerId] = {
+          customer_id: customerId,
+          delivered: 0,
+          packed: 0,
+          delivered_to_customers: 0,
+          available_empty: 0,
+          available_packed: 0
+        };
+      }
+      summary[customerId].delivered += item.quantity_delivered;
+    });
+
+    // Process packed bags
+    (packedResult.data || []).forEach(item => {
+      const customerId = item.customer_id;
+      if (!summary[customerId]) {
+        summary[customerId] = {
+          customer_id: customerId,
+          delivered: 0,
+          packed: 0,
+          delivered_to_customers: 0,
+          available_empty: 0,
+          available_packed: 0
+        };
+      }
+      summary[customerId].packed += item.quantity_packed;
+    });
+
+    // Process bags delivered to customers
+    (deliveredToCustomersResult.data || []).forEach(item => {
+      const customerId = item.customer_id;
+      if (!summary[customerId]) {
+        summary[customerId] = {
+          customer_id: customerId,
+          delivered: 0,
+          packed: 0,
+          delivered_to_customers: 0,
+          available_empty: 0,
+          available_packed: 0
+        };
+      }
+      summary[customerId].delivered_to_customers += item.quantity_delivered;
+    });
+
+    // Calculate available quantities
+    for (const customerSummary of Object.values(summary)) {
+      customerSummary.available_empty = Math.max(0, customerSummary.delivered - customerSummary.packed);
+      customerSummary.available_packed = Math.max(0, customerSummary.packed - customerSummary.delivered_to_customers);
+    }
+
+    // Get customer details to add names
+    const customerIds = Object.keys(summary);
+    if (customerIds.length > 0) {
+      const { data: customers, error } = await supabase
+        .from(TABLES.SHAVINGS_CUSTOMERS)
+        .select('id, name')
+        .in('id', customerIds);
+
+      if (error) throw error;
+
+      // Add customer names to summary
+      (customers || []).forEach(customer => {
+        if (summary[customer.id]) {
+          summary[customer.id].customer_name = customer.name;
+        }
+      });
+    }
+
+    return Object.values(summary);
+  }
+};
+
+// Shavings delivery operations
+export const shavingsDeliveryOperations = {
+  // Create a new delivery
+  async createDelivery(deliveryData) {
+    // Generate invoice number
+    const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
+    
+    const { data, error } = await supabase
+      .from(TABLES.SHAVINGS_DELIVERIES)
+      .insert([{
+        ...deliveryData,
+        invoice_number: invoiceNumber,
+        delivery_date: new Date().toISOString(),
+        created_at: new Date().toISOString()
+      }])
+      .select();
+    if (error) throw error;
+    return data[0];
+  },
+
+  // Get deliveries with customer details
+  async getDeliveries(customerId = null) {
+    let query = supabase
+      .from(TABLES.SHAVINGS_DELIVERIES)
+      .select(`
+        *,
+        customers:customer_id(name,email)
+      `)
+      .order('delivery_date', { ascending: false });
+
+    if (customerId) {
+      query = query.eq('customer_id', customerId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    // Flatten customer data
+    return (data || []).map(delivery => ({
+      ...delivery,
+      customer_name: delivery.customers?.name || 'Unknown',
+      customer_email: delivery.customers?.email || ''
+    }));
+  },
+
+  // Get delivery by ID
+  async getDeliveryById(deliveryId) {
+    const { data, error } = await supabase
+      .from(TABLES.SHAVINGS_DELIVERIES)
+      .select(`
+        *,
+        customers:customer_id(name,email)
+      `)
+      .eq('id', deliveryId)
+      .single();
+    if (error) throw error;
+
+    return {
+      ...data,
+      customer_name: data.customers?.name || 'Unknown',
+      customer_email: data.customers?.email || ''
+    };
+  },
+
+  // Mark invoice as sent
+  async markInvoiceSent(deliveryId) {
+    const { data, error } = await supabase
+      .from(TABLES.SHAVINGS_DELIVERIES)
+      .update({
+        invoice_sent: true,
+        invoice_sent_date: new Date().toISOString()
+      })
+      .eq('id', deliveryId)
+      .select();
+    if (error) throw error;
+    return data[0];
+  },
+
+  // Mark payment received
+  async markPaymentReceived(deliveryId, paymentMethod) {
+    const { data, error } = await supabase
+      .from(TABLES.SHAVINGS_DELIVERIES)
+      .update({
+        payment_received: true,
+        payment_date: new Date().toISOString(),
+        payment_method: paymentMethod
+      })
+      .eq('id', deliveryId)
+      .select();
+    if (error) throw error;
+    return data[0];
   }
 };
 
@@ -1838,7 +1771,6 @@ export const testConnection = async () => {
       .from(TABLES.LOGS)
       .select('count(*)')
       .limit(1);
-
     if (error) throw error;
     console.log('Supabase: Connected successfully');
     return true;

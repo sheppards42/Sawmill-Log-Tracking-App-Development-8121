@@ -22,12 +22,32 @@ import PlankTracking from './components/PlankTracking';
 import JoiningPlaning from './components/JoiningPlaning';
 import LoadManagement from './components/LoadManagement';
 import DeliveryNote from './components/DeliveryNote';
+// Shavings Management Components
+import ShavingsCustomerManagement from './components/shavings/ShavingsCustomerManagement';
+import BagsInventory from './components/shavings/BagsInventory';
+import ShavingsDelivery from './components/shavings/ShavingsDelivery';
 import './App.css';
 
-const { 
-  FiTruck, FiZap, FiBarChart3, FiHome, FiLayers, FiPackage, FiSend, FiLogOut, 
-  FiUser, FiUsers, FiFileText, FiTool, FiSettings, FiAlertTriangle, FiUserCheck,
-  FiPieChart, FiTrendingUp
+const {
+  FiTruck,
+  FiZap,
+  FiBarChart3,
+  FiHome,
+  FiLayers,
+  FiPackage,
+  FiSend,
+  FiLogOut,
+  FiUser,
+  FiUsers,
+  FiFileText,
+  FiTool,
+  FiSettings,
+  FiAlertTriangle,
+  FiUserCheck,
+  FiPieChart,
+  FiTrendingUp,
+  FiBox,
+  FiShoppingBag
 } = FiIcons;
 
 // Dashboard Component
@@ -46,6 +66,11 @@ const Dashboard = () => {
     { id: 'loads', label: 'Load Management', icon: FiSend, permission: 'load_management' },
     { id: 'delivery', label: 'Delivery Notes', icon: FiFileText, permission: 'delivery_notes' },
     { id: 'reports', label: 'Reports', icon: FiBarChart3, permission: 'reports' },
+    // Shavings Management Tabs
+    { id: 'shavings-customers', label: 'Shavings Customers', icon: FiUsers, permission: 'shavings_management' },
+    { id: 'bags-inventory', label: 'Bags Inventory', icon: FiBox, permission: 'shavings_management' },
+    { id: 'shavings-delivery', label: 'Shavings Delivery', icon: FiShoppingBag, permission: 'shavings_management' },
+    // Maintenance Tabs
     { id: 'machines', label: 'Machines', icon: FiSettings, permission: 'user_management' },
     { id: 'tools', label: 'Tools', icon: FiTool, permission: 'user_management' },
     { id: 'spares', label: 'Spare Parts', icon: FiPackage, permission: 'user_management' },
@@ -57,9 +82,7 @@ const Dashboard = () => {
   ];
 
   // Filter tabs based on user permissions
-  const tabs = allTabs.filter(tab => 
-    tab.permission === null || hasAccess(tab.permission)
-  );
+  const tabs = allTabs.filter(tab => tab.permission === null || hasAccess(tab.permission));
 
   const handleLogout = () => {
     logout();
@@ -68,44 +91,33 @@ const Dashboard = () => {
   const renderContent = () => {
     if (deliveryNoteLoadId) {
       return (
-        <DeliveryNote 
-          loadId={deliveryNoteLoadId} 
-          onClose={() => setDeliveryNoteLoadId(null)} 
+        <DeliveryNote
+          loadId={deliveryNoteLoadId}
+          onClose={() => setDeliveryNoteLoadId(null)}
         />
       );
     }
 
     switch (activeTab) {
-      case 'entry':
-        return hasAccess('log_entry') ? <LogEntry /> : <AccessDenied />;
-      case 'cutting':
-        return hasAccess('cutting_station') ? <CuttingStation /> : <AccessDenied />;
-      case 'planks':
-        return hasAccess('plank_tracking') ? <PlankTracking /> : <AccessDenied />;
-      case 'processing':
-        return hasAccess('plank_processing') ? <JoiningPlaning /> : <AccessDenied />;
-      case 'loads':
-        return hasAccess('load_management') ? <LoadManagement onDeliveryNote={setDeliveryNoteLoadId} /> : <AccessDenied />;
-      case 'reports':
-        return hasAccess('reports') ? <Reports /> : <AccessDenied />;
-      case 'machines':
-        return hasAccess('user_management') ? <MachineManagement /> : <AccessDenied />;
-      case 'tools':
-        return hasAccess('user_management') ? <ToolManagement /> : <AccessDenied />;
-      case 'spares':
-        return hasAccess('user_management') ? <SpareManagement /> : <AccessDenied />;
-      case 'breakdowns':
-        return <BreakdownManagement />;
-      case 'customers':
-        return hasAccess('user_management') ? <CustomerManagement /> : <AccessDenied />;
-      case 'customer-analytics':
-        return hasAccess('reports') ? <CustomerAnalytics /> : <AccessDenied />;
-      case 'supplier-analytics':
-        return hasAccess('reports') ? <SupplierAnalytics /> : <AccessDenied />;
-      case 'users':
-        return hasAccess('user_management') ? <UserManagement /> : <AccessDenied />;
-      default:
-        return <DashboardHome tabs={tabs} setActiveTab={setActiveTab} user={user} />;
+      case 'entry': return hasAccess('log_entry') ? <LogEntry /> : <AccessDenied />;
+      case 'cutting': return hasAccess('cutting_station') ? <CuttingStation /> : <AccessDenied />;
+      case 'planks': return hasAccess('plank_tracking') ? <PlankTracking /> : <AccessDenied />;
+      case 'processing': return hasAccess('plank_processing') ? <JoiningPlaning /> : <AccessDenied />;
+      case 'loads': return hasAccess('load_management') ? <LoadManagement onDeliveryNote={setDeliveryNoteLoadId} /> : <AccessDenied />;
+      case 'reports': return hasAccess('reports') ? <Reports /> : <AccessDenied />;
+      case 'machines': return hasAccess('user_management') ? <MachineManagement /> : <AccessDenied />;
+      case 'tools': return hasAccess('user_management') ? <ToolManagement /> : <AccessDenied />;
+      case 'spares': return hasAccess('user_management') ? <SpareManagement /> : <AccessDenied />;
+      case 'breakdowns': return <BreakdownManagement />;
+      case 'customers': return hasAccess('user_management') ? <CustomerManagement /> : <AccessDenied />;
+      case 'customer-analytics': return hasAccess('reports') ? <CustomerAnalytics /> : <AccessDenied />;
+      case 'supplier-analytics': return hasAccess('reports') ? <SupplierAnalytics /> : <AccessDenied />;
+      case 'users': return hasAccess('user_management') ? <UserManagement /> : <AccessDenied />;
+      // Shavings Management
+      case 'shavings-customers': return hasAccess('shavings_management') ? <ShavingsCustomerManagement /> : <AccessDenied />;
+      case 'bags-inventory': return hasAccess('shavings_management') ? <BagsInventory /> : <AccessDenied />;
+      case 'shavings-delivery': return hasAccess('shavings_management') ? <ShavingsDelivery /> : <AccessDenied />;
+      default: return <DashboardHome tabs={tabs} setActiveTab={setActiveTab} user={user} />;
     }
   };
 
@@ -119,7 +131,6 @@ const Dashboard = () => {
               <SafeIcon icon={FiHome} className="text-2xl text-blue-600" />
               <span className="text-xl font-bold text-gray-800">Sawmill Manager</span>
             </div>
-            
             <div className="flex items-center space-x-1 overflow-x-auto">
               {tabs.map((tab) => (
                 <button
@@ -129,16 +140,13 @@ const Dashboard = () => {
                     setDeliveryNoteLoadId(null);
                   }}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors whitespace-nowrap ${
-                    activeTab === tab.id
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
+                    activeTab === tab.id ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
                   }`}
                 >
                   <SafeIcon icon={tab.icon} />
                   <span className="hidden md:inline text-sm">{tab.label}</span>
                 </button>
               ))}
-              
               <div className="flex items-center gap-2 ml-4 pl-4 border-l border-gray-200">
                 <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg">
                   <SafeIcon icon={FiUser} className="text-gray-600" />
@@ -213,7 +221,10 @@ const DashboardHome = ({ tabs, setActiveTab, user }) => (
           customers: 'green',
           'customer-analytics': 'blue',
           'supplier-analytics': 'green',
-          users: 'red'
+          users: 'red',
+          'shavings-customers': 'purple',
+          'bags-inventory': 'amber',
+          'shavings-delivery': 'teal'
         };
         const color = colors[tab.id] || 'gray';
 
@@ -271,7 +282,10 @@ const getTabDescription = (tabId) => {
     customers: 'Manage customer information',
     'customer-analytics': 'Analyze customer delivery patterns',
     'supplier-analytics': 'Analyze supplier performance',
-    users: 'Manage users and permissions'
+    users: 'Manage users and permissions',
+    'shavings-customers': 'Manage shavings customers and pricing',
+    'bags-inventory': 'Track empty and packed bags inventory',
+    'shavings-delivery': 'Create deliveries and invoices for shavings'
   };
   return descriptions[tabId] || '';
 };
@@ -284,7 +298,6 @@ function App() {
       await initializeTables();
       await userOperations.initializeDefaultUsers();
     };
-    
     initializeApp();
   }, []);
 
@@ -293,13 +306,13 @@ function App() {
       <Router>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route 
-            path="/dashboard" 
+          <Route
+            path="/dashboard"
             element={
               <ProtectedRoute>
                 <Dashboard />
               </ProtectedRoute>
-            } 
+            }
           />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>
